@@ -3,6 +3,10 @@ from .models import Product,Customer,Order,OrderItem
 from django.db.models import Q
 from django.contrib.auth.hashers import make_password,check_password
 
+import razorpay
+from django.conf import settings
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 # Create your views here.
 
 def home(req):
@@ -10,7 +14,7 @@ def home(req):
 
     query=req.GET.get('q')
     if query:
-        products=products.filter(Q(name__icontains=query) | Q(description__icontains=query) | Q(categoary__icontains=query))
+        products=products.filter(Q(name__icontains=query) | Q(description__icontains=query) | Q(category__icontains=query))
 
     price_filter=req.GET.get('price')
     if price_filter:
@@ -27,9 +31,9 @@ def home(req):
         elif price_filter=='5000plus':
             products=products.filter(price__gte=5000)
         
-    categoary_filter=req.GET.get('categoary')
-    if categoary_filter:
-        products=products.filter(categoary=categoary_filter)
+    category_filter=req.GET.get('category')
+    if category_filter:
+        products=products.filter(category=category_filter)
     
     sort_filter=req.GET.get('sort')
     if sort_filter:
@@ -45,7 +49,7 @@ def home(req):
         'products':products,
         'auth':auth,
         'price_filter':price_filter,
-        'categoary_filter':categoary_filter,
+        'category_filter':category_filter,
         'sort_filter':sort_filter
     }
 
@@ -123,10 +127,10 @@ def add_product(req):
         p=req.POST.get('price')
         d=req.POST.get('description')
         i=req.FILES.get('image')
-        c=req.POST.get('categoary')
+        c=req.POST.get('category')
         s=req.POST.get('stock')
 
-        Product.objects.create(name=n,price=p,description=d,image=i,categoary=c,stock=s)
+        Product.objects.create(name=n,price=p,description=d,image=i,category=c,stock=s)
         return redirect('view_products')
 
 
@@ -144,16 +148,17 @@ def edit_product(req,id):
         p=req.POST.get('price')
         d=req.POST.get('description')
         s=req.POST.get('stock')
-        c=req.POST.get('categoary')
+        c=req.POST.get('category')
 
-        if req.POST.get('image'):
-            product.image=req.POST.get('image')
+        if req.FILES.get('image'):
+          product.image = req.FILES.get('image')
+
         
         product.name=n
         product.price=p
         product.description=d
         product.stock=s
-        product.categoary=c
+        product.category=c
         product.save()
         return redirect('view_products')
 
@@ -208,16 +213,16 @@ def cart(req):
     req.session['cart']=cart
     return render(req,'cart.html',{'cart':cart,'total':total})
 
-def cart_add(req,id):
-    cart=req.session.get('cart',{})
-    product=Product.objects.get(id=id)
+def cart_add(req, id):
+    cart = req.session.get('cart', {})
+    product = Product.objects.get(id=id)
 
     if str(id) in cart:
-        cart[str(id)]['qty']<product.stock
-        cart[str(id)]['qty']=cart[str(id)]['qty']+1
-        cart[str(id)]['item_total']=cart[str(id)]['qty']*cart[str(id)]['price']
-    
-    req.session['cart']=cart
+        if cart[str(id)]['qty'] < product.stock:
+            cart[str(id)]['qty'] += 1
+            cart[str(id)]['item_total'] = cart[str(id)]['qty'] * cart[str(id)]['price']
+
+    req.session['cart'] = cart
     return redirect('cart')
 
 def remove_cart(req,id):
@@ -255,36 +260,48 @@ def checkout(req):
     return render(req,'checkout.html')
 
 def place_order(req):
-    if req.method!='POST':
+
+    if req.method != 'POST':
         return redirect('home')
-    
-    auth=req.session.get('auth')
-    if not auth or auth.get('role')!='customer':
+
+    auth = req.session.get('auth')
+    if not auth or auth.get('role') != 'customer':
         return redirect('login')
-    
-    cart=req.session.get('cart')
+
+    cart = req.session.get('cart')
     if not cart:
         return redirect('home')
-    
-    payment_method=req.POST.get('payment_method')
 
-    order=Order.objects.create(user_id=auth['user_id'],total_price=0,payment_method=payment_method)
+    total = 0
+    for key, item in cart.items():
+        total += item['price'] * item['qty']
 
-    total=0
+    order = Order.objects.create(
+        user_id=auth['user_id'],
+        total_amount=total,
+        payment_method=req.POST.get('payment_method'),
+        status="Paid"
+    )
 
-    for key,item in cart.items():
-        product=Product.objects.get(id=key)
-        product.stock=product.stock-item['qty']
+    for key, item in cart.items():
+        product = Product.objects.get(id=key)
+
+        if product.stock < item['qty']:
+            return redirect('cart')
+
+        product.stock -= item['qty']
         product.save()
 
-        OrderItem.objects.create(order=order,product=product,price=product.price,qty=item['qty'])
-        total=total+product.price*item['qty']
-        
-    order.total_price=total
-    order.save()
-    
-    req.session['cart']={}
-    return render(req,'order_success.html',{'order':order})
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            price=product.price,
+            qty=item['qty']
+        )
+
+    req.session['cart'] = {}
+
+    return render(req, 'order_success.html', {'order': order})
 
 def order_history(req):
     auth=req.session.get('auth')
@@ -295,12 +312,94 @@ def order_history(req):
     return render(req,'order_history.html',{'orders':orders})
 
 
+@api_view(['POST'])
+def create_order(request):
+
+    auth = request.session.get('auth')
+    if not auth:
+        return Response({"error": "Login required"}, status=400)
+
+    cart = request.session.get('cart')
+    if not cart:
+        return Response({"error": "Cart empty"}, status=400)
+
+    total = 0
+    for key, item in cart.items():
+        total += item['price'] * item['qty']
+
+    client = razorpay.Client(
+        auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+    )
+
+    payment = client.order.create({
+        "amount": int(total) * 100,
+        "currency": "INR",
+        "payment_capture": 1
+    })
+
+    order = Order.objects.create(
+        user_id=auth['user_id'],
+        total_amount=total,
+        payment_method="Razorpay",
+        razorpay_order_id=payment["id"],
+        status="Pending"
+    )
+
+    return Response({
+        "order_id": payment["id"],
+        "amount": payment["amount"],
+        "key": settings.RAZORPAY_KEY_ID
+    })
 
 
+@api_view(['POST'])
+def verify_payment(request):
 
+    try:
+        client = razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+        )
 
+        client.utility.verify_payment_signature({
+            'razorpay_order_id': request.data['razorpay_order_id'],
+            'razorpay_payment_id': request.data['razorpay_payment_id'],
+            'razorpay_signature': request.data['razorpay_signature']
+        })
 
+        order = Order.objects.get(
+            razorpay_order_id=request.data['razorpay_order_id']
+        )
 
+        if order.status == "Paid":
+            return Response({"status": "Already Paid"})
 
+        order.razorpay_payment_id = request.data['razorpay_payment_id']
+        order.razorpay_signature = request.data['razorpay_signature']
+        order.status = "Paid"
+        order.save()
 
+        cart = request.session.get('cart', {})
 
+        for key, item in cart.items():
+            product = Product.objects.get(id=key)
+
+            if product.stock < item['qty']:
+                return Response({"error": "Insufficient stock"}, status=400)
+
+            product.stock -= item['qty']
+            product.save()
+
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                price=product.price,
+                qty=item['qty']
+            )
+
+        request.session['cart'] = {}
+
+        return Response({"status": "Payment Successful"})
+
+    except Exception as e:
+        print("Payment Error:", e)
+        return Response({"status": "Payment Failed"}, status=400)

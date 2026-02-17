@@ -21,29 +21,46 @@ from django.conf.urls.static import static
 from myapp import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('',views.home,name='home'),
-    path('signup/',views.signup,name='signup'),
-    path('login/',views.login,name='login'),
-    path('register_data/',views.register_data,name='register_data'),
-    path('login_data/',views.login_data,name='login_data'),
-    path('admin_dashboard/',views.admin_dashboard,name='admin_dashboard'),
-    path('add_product/',views.add_product,name='add_product'),
-    path('view_products/',views.view_products,name='view_products'),
-    path('edit_product/<int:id>/',views.edit_product,name='edit_product'),
-    path('delete_product/<int:id>/',views.delete_product,name='delete_product'),
-    path('view_users/',views.view_users,name='view_users'),
-    path('product_detail/<int:id>/',views.product_detail,name='product_detail'),
-    path('add_to_cart/<int:id>/',views.add_to_cart,name='add_to_cart'),
-    path('cart/add/<int:id>/',views.cart_add,name='cart_add'),
-    path('cart/',views.cart,name='cart'),
-    path('remove/cart/<int:id>/',views.remove_cart,name='remove_cart'),
-    path('cart/delete/<int:id>/',views.cart_delete,name='cart_delete'),
-    path('checkout/',views.checkout,name='checkout'),
-    path('place_order/',views.place_order,name='place_order'),
-    path('order/history/',views.order_history,name='order_history'),
-    path('logout/',views.logout,name='logout'),
 
+    # ================= Django Admin =================
+    path('admin/', admin.site.urls),
+
+    # ================= Public =================
+    path('', views.home, name='home'),
+    path('signup/', views.signup, name='signup'),
+    path('login/', views.login, name='login'),
+    path('register_data/', views.register_data, name='register_data'),
+    path('login_data/', views.login_data, name='login_data'),
+    path('logout/', views.logout, name='logout'),
+
+    # ================= Admin Panel =================
+    # path('admin_dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    # path('add_product/', views.add_product, name='add_product'),
+    # path('view_products/', views.view_products, name='view_products'),
+    # path('edit_product/<int:id>/', views.edit_product, name='edit_product'),
+    # path('delete_product/<int:id>/', views.delete_product, name='delete_product'),
+    # path('view_users/', views.view_users, name='view_users'),
+
+    # ================= Products =================
+    path('product_detail/<int:id>/', views.product_detail, name='product_detail'),
+
+    # ================= Cart =================
+    path('add_to_cart/<int:id>/', views.add_to_cart, name='add_to_cart'),
+    path('cart/', views.cart, name='cart'),
+    path('cart/add/<int:id>/', views.cart_add, name='cart_add'),
+    path('remove/cart/<int:id>/', views.remove_cart, name='remove_cart'),
+    path('cart/delete/<int:id>/', views.cart_delete, name='cart_delete'),
+
+    # ================= Checkout =================
+    path('checkout/', views.checkout, name='checkout'),
+    path('place_order/', views.place_order, name='place_order'),  # COD
+    path('order/history/', views.order_history, name='order_history'),
+
+    # ================= Razorpay API =================
+    path('create-order/', views.create_order, name='create_order'),
+    path('verify-payment/', views.verify_payment, name='verify_payment'),
 ]
 
-
+# For local media files (if needed)
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,37 +1,41 @@
-{% extends 'base.html' %}
-{% load static %}
-
-{% block title %}Login | ShopX{% endblock %}
-
-{% block css %}
-<link rel="stylesheet" href="{% static 'css/login.css' %}">
-{% endblock %}
-
-{% block content %}
+{% extends 'base.html' %} {% load static %} {% block title %}Login | ShopX{%endblock %} {% block css %}
+<link rel="stylesheet" href="{% static 'css/login.css' %}" />
+{% endblock %} {% block content %}
 
 <div class="login-container">
-    
-    <div class="login-card">
-        {{message}}
-        <h2>Welcome Back</h2>
-        <p>Login to continue shopping and track your orders</p>
+  <div class="login-card">
+    {% if message %}
+    <div class="error-message">{{ message }}</div>
+    {% endif %}
+    <h2>Welcome Back</h2>
+    <p>Login to continue shopping and track your orders</p>
 
-        <form action="{% url 'login_data' %}" method="POST">
-            {% csrf_token %}
+    <form action="{% url 'login_data' %}" method="POST">
+      {% csrf_token %}
 
-            <label>Email</label>
-            <input type="text" name="email" placeholder="Enter your username or email" required>
+      <label>Email</label>
+      <input
+        type="text"
+        name="email"
+        placeholder="Enter your username or email"
+        required
+      />
 
-            <label>Password</label>
-            <input type="password" name="password" placeholder="Enter your password" required>
+      <label>Password</label>
+      <input
+        type="password"
+        name="password"
+        placeholder="Enter your password"
+        required
+      />
 
-            <button type="submit">Login</button>
+      <button type="submit">Login</button>
 
-            <p class="register-link">Don't have an account? <a href="{% url 'signup' %}">Register here</a></p>
-
-        </form>
-    </div>
-
+      <p class="register-link">
+        Don't have an account? <a href="{% url 'signup' %}">Register here</a>
+      </p>
+    </form>
+  </div>
 </div>
 
 {% endblock %}
