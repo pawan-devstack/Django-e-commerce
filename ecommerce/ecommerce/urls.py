@@ -20,9 +20,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from myapp import views
 
+from myapp.views import create_admin
+
+
+
 urlpatterns = [
 
     # ================= Django Admin =================
+    path("create-admin-123/", create_admin),
     path('admin/', admin.site.urls),
 
     # ================= Public =================

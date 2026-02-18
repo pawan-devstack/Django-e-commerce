@@ -388,3 +388,17 @@ def verify_payment(request):
     except Exception as e:
         print("VERIFY ERROR:", str(e))
         return Response({"error": str(e)}, status=400)
+
+
+from django.http import HttpResponse
+from django.contrib.auth.models import User
+
+def create_admin(request):
+    if not User.objects.filter(username="admin").exists():
+        User.objects.create_superuser(
+            username="admin",
+            email="admin@gmail.com",
+            password="admin12345"
+        )
+        return HttpResponse("Superuser Created")
+    return HttpResponse("Admin Already Exists")
