@@ -354,52 +354,37 @@ def create_order(request):
 
 @api_view(['POST'])
 def verify_payment(request):
-
     try:
+        print("REQUEST DATA:", request.data)
+
+        razorpay_order_id = request.data.get("razorpay_order_id")
+        razorpay_payment_id = request.data.get("razorpay_payment_id")
+        razorpay_signature = request.data.get("razorpay_signature")
+
+        if not razorpay_order_id:
+            return Response({"error": "Order ID missing"}, status=400)
+
         client = razorpay.Client(
             auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
         )
 
         client.utility.verify_payment_signature({
-            'razorpay_order_id': request.data['razorpay_order_id'],
-            'razorpay_payment_id': request.data['razorpay_payment_id'],
-            'razorpay_signature': request.data['razorpay_signature']
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
         })
 
-        order = Order.objects.get(
-            razorpay_order_id=request.data['razorpay_order_id']
-        )
+        order = Order.objects.get(razorpay_order_id=razorpay_order_id)
 
-        if order.status == "Paid":
-            return Response({"status": "Already Paid"})
-
-        order.razorpay_payment_id = request.data['razorpay_payment_id']
-        order.razorpay_signature = request.data['razorpay_signature']
+        order.razorpay_payment_id = razorpay_payment_id
+        order.razorpay_signature = razorpay_signature
         order.status = "Paid"
         order.save()
-
-        cart = request.session.get('cart', {})
-
-        for key, item in cart.items():
-            product = Product.objects.get(id=key)
-
-            if product.stock < item['qty']:
-                return Response({"error": "Insufficient stock"}, status=400)
-
-            product.stock -= item['qty']
-            product.save()
-
-            OrderItem.objects.create(
-                order=order,
-                product=product,
-                price=product.price,
-                qty=item['qty']
-            )
 
         request.session['cart'] = {}
 
         return Response({"status": "Payment Successful"})
 
     except Exception as e:
-        print("Payment Error:", e)
-        return Response({"status": "Payment Failed"}, status=400)
+        print("VERIFY ERROR:", str(e))
+        return Response({"error": str(e)}, status=400)

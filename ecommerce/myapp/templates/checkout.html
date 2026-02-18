@@ -1,38 +1,85 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Checkout{% endblock %}
-{% block css%}
+{% block css %}
 <link rel="stylesheet" href="{% static 'css/checkout.css' %}">
-{% endblock css%}
+{% endblock css %}
 {% block content %}
+
 <div class="checkout-wrapper">
+    <h2>Proceed to Payment</h2>
 
-    <h2>Choose Payment Method</h2>
-
-    <form method="post" action="{% url 'place_order' %}">
-        {% csrf_token %}
-
-        <div class="payment-box">
-            <label>
-                <input type="radio" name="payment_method" value="card" required>
-                💳 Credit / Debit Card
-            </label>
-
-            <label>
-                <input type="radio" name="payment_method" value="upi">
-                📱 UPI
-            </label>
-
-            <label>
-                <input type="radio" name="payment_method" value="cod">
-                💵 Cash on Delivery
-            </label>
-        </div>
-
-        <button type="submit" class="pay-btn">
-            Pay Now
-        </button>
-    </form>
+    <button id="rzp-button" type="button" class="pay-btn">
+    Pay Now
+</button>
 
 </div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.getElementById("rzp-button").onclick = function(e){
+
+    fetch("/create-order/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+
+        var options = {
+            "key": data.key,
+            "amount": data.amount,
+            "currency": "INR",
+            "name": "ShopX",
+            "order_id": data.order_id,
+
+            "handler": function (response){
+
+                fetch("/verify-payment/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(response)
+                })
+                .then(res => res.json())
+                .then(result => {
+                    if(result.status === "Payment Successful"){
+                        window.location.href = "/order/history/";
+                    }
+                    else{
+                        alert(result.error || "Payment Failed");
+                    }
+                });
+            }
+        };
+
+        var rzp1 = new Razorpay(options);
+        rzp1.open();
+    });
+
+    e.preventDefault();
+}
+</script>
+
 {% endblock %}

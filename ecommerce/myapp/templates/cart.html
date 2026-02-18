@@ -8,7 +8,8 @@
 {% block content %}
 
 <div class="cart-container">
-    <h2>Your Cart</h2>
+
+    <h2 class="cart-title">🛒 Your Shopping Cart</h2>
 
     {% if cart %}
         {% for key, item in cart.items %}
@@ -18,117 +19,42 @@
 
                 <div class="cart-details">
                     <h4>{{ item.name }}</h4>
-                    <p>Price: ₹{{ item.price }}</p>
+                    <div class="price">₹{{ item.price }}</div>
 
-                    <!-- QUANTITY CONTROLS -->
                     <div class="qty-box">
                         <a href="{% url 'remove_cart' key %}" class="qty-btn">−</a>
                         <span>{{ item.qty }}</span>
-                        <a href="{% url 'cart_add' key %}"
-                           class="qty-btn {% if item.qty >= item.stock %}disabled{% endif %}">
-                           +
-                        </a>
+                        <a href="{% url 'cart_add' key %}" class="qty-btn">+</a>
                     </div>
 
-                    <p>Total: ₹{{ item.item_total }}</p>
+                    <div><strong>Total:</strong> ₹{{ item.item_total }}</div>
 
-                    <!-- ❌ REMOVE FULL ITEM -->
                     <a href="{% url 'cart_delete' key %}" class="remove-btn">
-                        ❌ Remove Item
+                        Remove Item
                     </a>
                 </div>
 
             </div>
         {% endfor %}
+
+        <div class="cart-summary">
+            Grand Total: ₹{{ total }}
+        </div>
+
+        <a href="{% url 'checkout' %}" class="checkout-btn">
+            Proceed to Secure Checkout 🔒
+        </a>
+
     {% else %}
-        <p class="empty-cart">Your cart is empty</p>
+        <div class="empty-cart">
+            Your cart is empty 😔
+            <br><br>
+            <a href="{% url 'home' %}" class="checkout-btn">
+                Continue Shopping
+            </a>
+        </div>
     {% endif %}
 
-    <a href="{% url 'home' %}" class="continue-shopping">
-        ⬅ Continue Shopping
-    </a>
 </div>
-
-{% if cart %}
-<hr>
-<button id="rzp-button">Proceed to Payment</button>
-{% endif %}
-
-
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-
-<script>
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-document.getElementById("rzp-button").onclick = function(e){
-
-    fetch("/create-order/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCookie('csrftoken')
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-
-        var options = {
-            "key": data.key,
-            "amount": data.amount,
-            "currency": "INR",
-            "name": "ShopX",
-            "order_id": data.order_id,
-
-            "handler": function (response){
-
-                fetch("/verify-payment/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": getCookie('csrftoken')
-                    },
-                    body: JSON.stringify(response)
-                })
-                .then(res => res.json())
-                .then(result => {
-                    if(result.status === "Payment Successful"){
-                        window.location.href = "/order/history/";
-                    }
-                    else{
-                        alert("Payment Failed");
-                    }
-                });
-            },
-
-            "prefill": {
-                "name": "{{ auth.name }}",
-                "email": "{{ auth.email }}"
-            },
-
-            "theme": {
-                "color": "#3399cc"
-            }
-        };
-
-        var rzp1 = new Razorpay(options);
-        rzp1.open();
-        e.preventDefault();
-    });
-}
-</script>
-
 
 {% endblock %}
