@@ -14,10 +14,10 @@
         <div class="order-card">
             <h3>Order #{{ order.id }}</h3>
             <p>Date: {{ order.created_at|date:"d M Y" }}</p>
-            <p>Total: ₹{{ order.total_price }}</p>
+            <p>Total: ₹{{ order.total_amount }}</p>
 
             <ul>
-                {% for item in order.items.all %}
+                {% for item in order.orderitems_set.all %}
                     <li>
                         {{ item.product.name }} × {{ item.qty }}  
                         (₹{{ item.price }})
