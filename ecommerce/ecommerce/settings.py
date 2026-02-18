@@ -70,7 +70,7 @@ ROOT_URLCONF = 'ecommerce.urls'
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
-    "https://ecommerce.onrender.com",
+    "https://django-e-commerce-c3pm.onrender.com",
 ]
 
 TEMPLATES = [
